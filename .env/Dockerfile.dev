@@ -1,0 +1,40 @@
+ARG FROM
+
+FROM $FROM
+
+USER root
+
+RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \ 
+ && echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list \
+ && apt-get update \
+ && apt-get install -y vim php-xdebug default-jre google-chrome-stable \
+ && rm -rf /var/lib/apt/lists/*
+
+ARG XDEBUG_HELPER=/opt/xdebug-helper-for-chrome
+RUN git clone --depth 1 -b 1.6.1  https://github.com/mac-cain13/xdebug-helper-for-chrome.git ${XDEBUG_HELPER} 
+
+ARG CHROME=/opt/google/chrome/chrome
+RUN mv ${CHROME} ${CHROME}_no_flags \
+ && echo "#! /bin/bash" > ${CHROME} \
+ && echo "${CHROME}_no_flags --disable-gpu --disable-dev-shm-usage --load-extension=${XDEBUG_HELPER}/source  \"\$@\"" >> ${CHROME} \
+ && chmod +x ${CHROME}
+
+RUN echo "xdebug.remote_enable = 1" >> /etc/php/8.1/mods-available/xdebug.ini \
+ && echo "xdebug.remote_host = 127.0.0.1" >> /etc/php/8.1/mods-available/xdebug.ini \
+ && echo "xdebug.remote_port = 9000" >> /etc/php/8.1/mods-available/xdebug.ini \
+ && echo "xdebug.mode=develop,debug,trace " >> /etc/php/8.1/mods-available/xdebug.ini \
+ && service php8.1-fpm restart
+
+RUN wget https://github.com/SeleniumHQ/selenium/releases/download/selenium-4.4.0/selenium-server-4.4.0.jar \
+ && mkdir /opt/selenium \
+ && mv selenium-server-4.4.0.jar /opt/selenium
+
+RUN wget https://chromedriver.storage.googleapis.com/107.0.5304.62/chromedriver_linux64.zip \
+ && unzip chromedriver_linux64.zip \
+ && mv chromedriver /opt/selenium \
+ && rm chromedriver_linux64.zip
+
+USER ${IMAGE_USER}
+WORKDIR /home/${IMAGE_USER}
+
+CMD ["bash"]

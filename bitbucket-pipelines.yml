@@ -1,0 +1,42 @@
+image: ddgg/php_2022:build_v2
+
+pipelines:
+  default:
+    - step:
+        caches:
+          - composer
+          - node
+        services:
+          - mysql
+        script:
+          - pushd 09_laravel_tdd/project/
+          -   composer install
+          -   vendor/bin/codecept build
+          -   vendor/bin/php-cs-fixer fix --diff --dry-run .
+          -   vendor/bin/phpstan analyze -c phpstan.neon
+          -   vendor/bin/phpcpd . --fuzzy --min-lines 1 --min-tokens 20 --exclude vendor --exclude tests* --exclude config --exclude storage
+          -   cp .env.example .env
+          -   php artisan key:generate
+          -   while ! timeout 1 bash -c "echo > /dev/tcp/localhost/3306"; do echo "Waiting for MySQL..."; sleep 1; done
+          -   php artisan migrate:fresh
+          -   php artisan db:seed
+          -   mysqldump -h127.0.0.1 -u root --password=root123 test > tests_codeception/_data/dump.sql
+          -   npm install
+          -   npm run build
+          -   php artisan test
+          -   php artisan serve --port 8888 &
+          -   while ! timeout 1 bash -c "echo > /dev/tcp/localhost/8888"; do echo "Waiting for server..."; sleep 1; done
+          -   vendor/bin/codecept run --xml test_report.xml
+          -   killall php php8.1
+          - popd
+          - .ci/collect_reports.sh
+definitions:
+  services:
+    mysql:
+      image: mysql:8.0
+      variables:
+        MYSQL_ROOT_PASSWORD: root123
+        MYSQL_ROOT_HOST: "%"
+        MYSQL_DATABASE: test
+        MYSQL_USER: test
+        MYSQL_PASSWORD: test123

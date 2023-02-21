@@ -1,0 +1,27 @@
+ARG FROM
+
+FROM $FROM
+
+USER root
+
+RUN apt-get update \ 
+ && apt-get install -y wget \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt
+
+RUN wget https://download.jetbrains.com/webide/PhpStorm-2022.2.3.tar.gz \
+ && tar xzf PhpStorm-2022.2.3.tar.gz \
+ && rm PhpStorm-2022.2.3.tar.gz
+
+ARG PHPSTORM=/usr/bin/phpstorm
+RUN echo "#! /bin/bash" > ${PHPSTORM} \
+ && echo "NO_AT_BRIDGE=1 /opt/PhpStorm-*/bin/phpstorm.sh \"\$@\"" >> ${PHPSTORM} \
+ && chmod +x ${PHPSTORM}
+
+RUN echo "idea.filewatcher.disabled=true" >> /opt/PhpStorm-222.4345.15/bin/idea.properties
+
+USER ${IMAGE_USER}
+WORKDIR /home/${IMAGE_USER}
+
+CMD ["phpstorm"]

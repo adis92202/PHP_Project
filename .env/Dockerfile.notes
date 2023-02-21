@@ -1,0 +1,32 @@
+ARG FROM
+
+FROM $FROM
+
+USER root
+
+RUN apt-get update \ 
+ && apt-get install -y python3-pip \
+ && rm -rf /var/lib/apt/lists/*
+
+USER ${IMAGE_USER}
+WORKDIR /home/${IMAGE_USER}
+
+ENV PATH="/home/${IMAGE_USER}/.local/bin:${PATH}"
+
+RUN pip3 install --upgrade pip
+RUN pip3 install virtualenv
+
+RUN virtualenv notes
+RUN . notes/bin/activate \
+ && pip install jupyter
+
+RUN . notes/bin/activate \
+ && pip install iplantuml
+
+RUN composer global require rabrennie/jupyter-php-kernel
+RUN mv .composer .composer_for_jpyter_php_kernel
+ENV PATH="/home/${IMAGE_USER}/.composer_for_jpyter_php_kernel/vendor/bin:${PATH}"
+RUN . notes/bin/activate \
+ && jupyter-php-kernel --install
+
+CMD . /home/${IMAGE_USER}/notes/bin/activate && jupyter notebook --port=9999
